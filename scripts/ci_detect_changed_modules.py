@@ -344,7 +344,11 @@ def _resolve_candidate(candidate: str, source_path: str, ownership: _ModuleOwner
         )
     raise ValueError(
         f"unmapped auto-heal module candidate for {source_path}: {candidate!r}; "
-        "add or correct its architecture.json ownership"
+        "add or correct its architecture.json ownership (prompt-backed pdd/ modules), "
+        "or, for a plain script/test that is not prompt-backed, add a row "
+        '{"inventory": "HUMAN_OWNED", "owner": "pdd-maintainers", '
+        f'"pattern": "{source_path}", "role": "human-maintained"}} '
+        f"to {_SYNC_OWNERSHIP_PATH} in a PR merged before the one adding the file"
     )
 
 

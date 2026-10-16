@@ -690,8 +690,10 @@ def test_detect_rejects_unmapped_managed_test(load_module, tmp_path, monkeypatch
         module, "_git_changed_files", lambda _diff_base: ["tests/test_missing.py"]
     )
 
-    with pytest.raises(ValueError, match=r"unmapped.*tests/test_missing.py"):
+    with pytest.raises(ValueError, match=r"unmapped.*tests/test_missing.py") as exc:
         module.detect("origin/main...HEAD")
+    assert ".pdd/sync-ownership.json" in str(exc.value)
+    assert '"pattern": "tests/test_missing.py"' in str(exc.value)
 
 
 @pytest.mark.parametrize("load_module", [_load_module, _load_packaged_module])
