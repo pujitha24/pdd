@@ -371,6 +371,27 @@ MOTION_OPTIONAL_PREFIX_RE = re.compile(
     r"transform[- ]safe|camera)){0,5}\s*$",
     flags=re.IGNORECASE,
 )
+SENTENCE_LEADING_OPTIONALLY_RE = re.compile(
+    r"((?:^|[.!?;])\s*)(optionally)\s*,",
+    flags=re.IGNORECASE,
+)
+# Equivalent optional forms; each is anchored to the clause and checked for a
+# trailing mandatory/negated/second motion by EQUIVALENT_OPTIONAL_TAIL_UNSAFE_RE.
+EQUIVALENT_OPTIONAL_PREFIX_RE = re.compile(
+    r"^(?:optionally\s+(?:use\s+)?(?:an?\s+)?(?:(?:gentle|slow|subtle|soft|"
+    r"smooth|slight|transform[- ]safe|camera)\s+){0,5}"
+    r"|(?:the\s+)?(?:camera\s+)?(?:motion|movement)\s+is\s+optional\s*:\s*)$",
+    flags=re.IGNORECASE,
+)
+EQUIVALENT_OPTIONAL_SUFFIX_RE = re.compile(
+    r"^\s+(?:is|are)\s+optional\b(?P<tail>.*)$",
+    flags=re.IGNORECASE,
+)
+EQUIVALENT_OPTIONAL_TAIL_UNSAFE_RE = re.compile(
+    r"\b(?:must|required|mandatory|needs?|should|will|not|never|non|"
+    r"(?:is|are|do|does)n't)\b|n't\b",
+    flags=re.IGNORECASE,
+)
 CAMERA_MODAL_PREFIX_RE = re.compile(
     r"\bcamera\s+(?:may|can|could)(?:\s+\w+){0,3}\s*$",
     flags=re.IGNORECASE,
@@ -3708,6 +3729,8 @@ def has_unsafe_visual_motion(cue: str) -> bool:
 
 def visual_motion_clauses(cue: str) -> list[str]:
     """Split a cue at boundaries that separate independently required actions."""
+    # A sentence-leading "Optionally," qualifies the action that follows it.
+    cue = SENTENCE_LEADING_OPTIONALLY_RE.sub(r"\1\2", cue)
     return [part.strip() for part in VISUAL_CLAUSE_SPLIT_RE.split(cue) if part.strip()]
 
 
@@ -3721,11 +3744,23 @@ def camera_motion_is_locally_optional(clause: str, match: re.Match[str]) -> bool
     camera_context = camera_context or bool(IMPLICIT_CAMERA_ACTION_RE.match(match.group(0)))
     if not camera_context:
         return False
-    return bool(
+    if (
         MOTION_OPTIONAL_PREFIX_RE.search(before)
         or CAMERA_MODAL_PREFIX_RE.search(before)
         or IMPLICIT_CAMERA_MODAL_PREFIX_RE.search(before)
         or MOTION_OPTIONAL_SUFFIX_RE.search(after)
+    ):
+        return True
+    suffix = EQUIVALENT_OPTIONAL_SUFFIX_RE.match(after)
+    if suffix:
+        tail = suffix.group("tail")
+    elif EQUIVALENT_OPTIONAL_PREFIX_RE.match(before):
+        tail = after
+    else:
+        return False
+    return not (
+        EQUIVALENT_OPTIONAL_TAIL_UNSAFE_RE.search(tail)
+        or CAMERA_MOTION_VISUAL_RE.search(tail)
     )
 
 
